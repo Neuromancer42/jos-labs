@@ -66,10 +66,10 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		struct Eipdebuginfo eip_info;
 		int errno = debuginfo_eip(ebp[1], &eip_info);
 		cprintf("      %s:%d: %.*s+%d\n",
-			eip_info->eip_file,
-			eip_info->eip_line,
-			eip_info->eip_fn_namelen, eip_info->eip_fn_name,
-			eip_info->eip_fn_addr);
+			eip_info.eip_file,
+			eip_info.eip_line,
+			eip_info.eip_fn_namelen, eip_info.eip_fn_name,
+			eip_info.eip_fn_addr);
 		ebp = (int*)*ebp;
 	}
 	return 0;
