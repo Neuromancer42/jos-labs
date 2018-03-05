@@ -39,12 +39,18 @@ i386_init(void)
 	cprintf("x %d, y %x, z %d\n", x, y, z);
 
 	unsigned int i = 0x00646c72;
-	cprintf("H%x WHO%s=n", 57616, &i);
+	cprintf("H%x WHO%s=\n", 57616, &i);
 
 	cprintf("x=%d y=%d\n", 3);
 
 	// Test the stack backtrace function (lab 1 only)
 	test_backtrace(5);
+
+	cprintf("test color:"
+		" \x1b[31mred\x1b[0m"
+		" \x1b[32mgreen\x1b[0m"
+		" \x1b[33myellow\x1b[0m"
+		"\n");
 
 	// Drop into the kernel monitor.
 	while (1)
