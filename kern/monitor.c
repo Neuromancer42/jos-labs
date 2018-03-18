@@ -26,7 +26,7 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display a listing of function call frames", mon_backtrace },
-	{ "showmappings", "Display the physical page mappings", mon_showmappings },
+	{ "mappings", "Display and manipulate the physical page mappings", mon_mappings },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -79,18 +79,24 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
-int
-mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+void
+mon_mappings_help()
 {
-	if (argc != 3) {
-		cprintf("Invalid arguments: "
-			"%s <lower-address> <upper-address>\n",
-			argv[0]);
-		return -1;
-	}
-	uintptr_t lower, upper;
-	lower = ROUNDDOWN(strtol(argv[1], NULL, 0), PGSIZE);
-	upper = ROUNDDOWN(strtol(argv[2], NULL, 0), PGSIZE);
+	cprintf("mappings: Display and manipulate the physical memory mappings\n"
+		"          help\n"
+		"                -- show this message\n"
+		"          show  <lower-addr> <upper-addr>\n"
+		"                -- display the mapping of the virtual addresses\n"
+		"          set   <address> [<entry>]\n"
+		"                -- set the page table entry if it exists\n"
+		"                   if no entry set, show the original\n"
+		"          dump  physical/virtual <lower-addr> <upper-addr>\n"
+		"                -- dump the contents in the virtual memory\n");
+}
+
+void
+mon_mappings_show(uintptr_t lower, uintptr_t upper)
+{
 	cprintf("Page mappings:\n"
 		"     Virtual    Physical\n", lower, upper);
 	size_t i;
@@ -98,14 +104,157 @@ mon_showmappings(int argc, char **argv, struct Trapframe *tf)
 	for(i = lower; i <= upper; i += PGSIZE) {
 		cprintf("  %08p", (void *) i);
 		pte_t *pte_ptr;
-		pte_ptr = pgdir_walk((pde_t *) pd_ptr, (void *) i, false);
+		pte_ptr = pgdir_walk(pd_ptr, (void *) i, false);
 		if (pte_ptr)
-			cprintf("%10p\n", PTE_ADDR(*pte_ptr));
+			cprintf("  %08p\n", PTE_ADDR(*pte_ptr));
 		else
 			cprintf("    unmapped\n");
 	}
+}
 
-	return 0;
+void
+mon_mappings_show_entry(uintptr_t va)
+{
+	pde_t *pd_ptr = (pde_t *) KADDR(rcr3());
+	pte_t *pte_ptr = pgdir_walk(pd_ptr, (void *) va, false);
+	if (pte_ptr)
+		cprintf("%08p: %08x\n", va, *pte_ptr);
+	else
+		cprintf("%08p: unmapped\n", va);
+}
+
+void
+mon_mappings_set_entry(uintptr_t va, pde_t pde)
+{
+	pde_t *pd_ptr = (pde_t *) KADDR(rcr3());
+	pte_t *pte_ptr = pgdir_walk(pd_ptr, (void *) va, false);
+	if (pte_ptr == NULL) {
+		*pte_ptr = pde;
+		cprintf("%08p: %08x -> %08x\n", va, *pte_ptr);
+	} else
+		cprintf("%08p: unmapped\n", va);
+}
+
+void
+mon_mappings_dump_page(uintptr_t pa, size_t offset, size_t length)
+{
+	size_t i;
+	for (i = pa + ROUNDDOWN(offset, 16);
+	     i < pa + ROUNDUP(offset + length, 16);
+	     i++) {
+		if (i <  pa + offset
+		    || i >=  pa + offset + length)
+			cprintf("   ");
+		else
+			cprintf(" %02x", (uint8_t) *((char*) i));
+		if (i % 16 == 15)
+			cprintf("\n");
+	}
+	cprintf("\n");
+}
+
+void
+mon_mappings_dump(uintptr_t lower, uintptr_t upper)
+{
+	if (lower >= upper) return;
+	size_t i;
+	pde_t *pd_ptr = (pde_t *) KADDR(rcr3());
+	pte_t *pte_ptr;
+	uintptr_t p1 = ROUNDUP(lower, PGSIZE);
+	uintptr_t p2 = ROUNDDOWN(upper, PGSIZE);
+	if (p1 < p2) {
+		pte_ptr = pgdir_walk(pd_ptr, (void *) lower, false);
+		if (pte_ptr)
+			mon_mappings_dump_page((uintptr_t) KADDR(PTE_ADDR(*pte_ptr)),
+					       lower, PGSIZE - lower);
+		else
+			cprintf(" unmapped!\n\n");
+		uintptr_t p;
+		for (p = p1 + PGSIZE; p < p2; p += PGSIZE) {
+			pte_ptr = pgdir_walk(pd_ptr, (char *) p, false);
+			if (pte_ptr)
+				mon_mappings_dump_page((uintptr_t) KADDR(PTE_ADDR(*pte_ptr)),
+						       0, PGSIZE);
+			else
+				cprintf(" unmapped!\n\n");
+		}
+		if (upper > p2) {
+			pte_ptr = pgdir_walk(pd_ptr, (char *) p2, false);
+			if (pte_ptr)
+				mon_mappings_dump_page((uintptr_t) KADDR(PTE_ADDR(*pte_ptr)),
+						       0, upper - p2);
+			else
+				cprintf(" unmmapped!\n\n");
+		}
+	} else {
+		pte_ptr = pgdir_walk(pd_ptr, (char *) lower, false);
+		if (pte_ptr)
+			mon_mappings_dump_page((uintptr_t) KADDR(PTE_ADDR(*pte_ptr)),
+					       lower, upper - lower);
+		else
+			cprintf(" unmapped!\n\n");
+	}
+}
+
+int
+mon_mappings(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc == 1) {
+		mon_mappings_help();
+		return 0;
+	} else {
+		if (strcmp(argv[1], "show") == 0) {
+			if (argc == 4) {
+				uintptr_t lower, upper;
+				lower = ROUNDDOWN(strtol(argv[2], NULL, 0), PGSIZE);
+				upper = ROUNDDOWN(strtol(argv[3], NULL, 0), PGSIZE);
+				mon_mappings_show(lower, upper);
+				return 0;
+			} else {
+				cprintf("Usage: show  <lower-addr> <upper-addr>\n");
+				return -1;
+			}
+		} else if (strcmp(argv[1], "set") == 0) {
+			if (argc == 3) {
+				uintptr_t va = strtol(argv[2], NULL, 0);
+				mon_mappings_show_entry(va);
+				return 0;
+			} else if (argc == 4) {
+				uintptr_t va = strtol(argv[2], NULL, 0);
+				pde_t pde = strtol(argv[3], NULL, 0);
+				return 0;
+			} else {
+				cprintf("Usage: set   <address> [<entry>]\n"
+					"             -- set the page table entry if it exists\n"
+					"                if no entry set, show the original\n");
+				return -1;
+			}
+		} else if (strcmp(argv[1], "dump") == 0) {
+			if (argc == 5 && strcmp(argv[2], "physical") == 0) {
+				physaddr_t lower, upper;
+				lower = (physaddr_t) KADDR(strtol(argv[3], NULL, 0));
+				upper = (physaddr_t) KADDR(strtol(argv[4], NULL, 0));
+				mon_mappings_dump(lower, upper);
+				return 0;
+			} else if (argc == 5 && strcmp(argv[2], "virtual") == 0) {
+				uintptr_t lower, upper;
+				lower = strtol(argv[3], NULL, 0);
+				upper = strtol(argv[4], NULL, 0);
+				mon_mappings_dump(lower, upper);
+				return 0;
+			} else {
+				cprintf("            dump  physical/virtual <lower-addr> <upper-addr>\n"
+					"                  -- dump the contents in the virtual memory\n");
+				return -1;
+			}
+		} else if (strcmp(argv[1], "help") == 0) {
+			mon_mappings_help();
+			return 0;
+		} else {
+			cprintf("Unknown command. use \"mappings help\" for more info.\n");
+			return -1;
+		}
+	}
 }
 
 /***** Kernel monitor command interpreter *****/
