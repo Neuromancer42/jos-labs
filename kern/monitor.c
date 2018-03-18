@@ -10,6 +10,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,6 +26,7 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Display a listing of function call frames", mon_backtrace },
+	{ "showmappings", "Display the physical page mappings", mon_showmappings },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -77,7 +79,34 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
+int
+mon_showmappings(int argc, char **argv, struct Trapframe *tf)
+{
+	if (argc != 3) {
+		cprintf("Invalid arguments: "
+			"%s <lower-address> <upper-address>\n",
+			argv[0]);
+		return -1;
+	}
+	uintptr_t lower, upper;
+	lower = ROUNDDOWN(strtol(argv[1], NULL, 0), PGSIZE);
+	upper = ROUNDDOWN(strtol(argv[2], NULL, 0), PGSIZE);
+	cprintf("Page mappings:\n"
+		"     Virtual    Physical\n", lower, upper);
+	size_t i;
+	pde_t *pd_ptr = (pde_t *) KADDR(rcr3());
+	for(i = lower; i <= upper; i += PGSIZE) {
+		cprintf("  %08p", (void *) i);
+		pte_t *pte_ptr;
+		pte_ptr = pgdir_walk((pde_t *) pd_ptr, (void *) i, false);
+		if (pte_ptr)
+			cprintf("%10p\n", PTE_ADDR(*pte_ptr));
+		else
+			cprintf("    unmapped\n");
+	}
 
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
