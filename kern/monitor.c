@@ -10,7 +10,6 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
-<<<<<<< HEAD
 #include <kern/trap.h>
 #include <kern/pmap.h>
 
