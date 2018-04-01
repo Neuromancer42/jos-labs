@@ -159,6 +159,8 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+	envs = (struct Env *) boot_alloc(NENV * sizeof(struct Env));
+	memset(envs, 0, NENV * sizeof(struct Env));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -196,6 +198,9 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+	boot_map_region(kern_pgdir, (uintptr_t)UENVS,
+			ROUNDUP(NENV * sizeof(struct Env), PGSIZE),
+			PADDR(envs), PTE_U | PTE_P);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -282,10 +287,12 @@ page_init(void)
 
 	page_free_list = NULL;
 	size_t i;
+	char * first_free_page;
+	first_free_page = boot_alloc(0);
 	for (i = 1; i < npages; i++) {
 		if ((i * PGSIZE < IOPHYSMEM || i * PGSIZE >= EXTPHYSMEM)
 		    && ((i> 0 && i < npages_basemem)
-			|| (i >= PADDR(ROUNDUP(pages + npages, PGSIZE)) / PGSIZE))) {
+			|| (i * PGSIZE >= PADDR(first_free_page)))) {
 			pages[i].pp_ref = 0;
 			pages[i].pp_link = page_free_list;
 			page_free_list = &pages[i];
