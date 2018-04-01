@@ -187,9 +187,11 @@ mem_init(void)
 	boot_map_region(kern_pgdir, (uintptr_t) UPAGES,
 			ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE),
 			PADDR(pages), PTE_U | PTE_P);
+	/* covered by mappings above KERNBASE
 	boot_map_region(kern_pgdir, (uintptr_t) pages,
 			ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE),
 			PADDR(pages), PTE_W | PTE_P);
+	*/
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
