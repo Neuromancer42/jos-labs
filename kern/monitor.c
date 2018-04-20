@@ -314,9 +314,58 @@ monitor(struct Trapframe *tf)
 		print_trapframe(tf);
 
 	while (1) {
-		buf = readline("K> ");
-		if (buf != NULL)
-			if (runcmd(buf, tf) < 0)
+		if (tf != NULL) {
+			buf = readline("debug> ");
+			if (strcmp(buf, "continue") == 0
+			    || strcmp(buf, "c") == 0) {
+                                // debug: continue
+				// reset EFlags trap flag
+				tf->tf_eflags = tf->tf_eflags & (~ FL_TF);
 				break;
+			} else if (strcmp(buf, "step") == 0
+				   || strcmp(buf, "s") == 0) {
+				// debug: single-step
+				// set EFLags trapflag
+				tf->tf_eflags = tf->tf_eflags | FL_TF;
+				break;
+			} else if (strcmp(buf, "registers") == 0
+				   || strcmp(buf, "r") == 0) {
+				// debug: show registers
+				cprintf("Registers:\n"
+					"edi: %08x  esi: %08x\n"
+					"ebp: %08x  esp: %08x\n"
+					"ebx: %08x  edx: %08x\n"
+					"ecx: %08x  eax: %08x\n"
+					"ss: %08x\n"
+					"cs: %08x\n"
+					"ds: %08x\n"
+					"es: %08x\n"
+					"eflags: %08x\n"
+					"eip: %08x\n",
+					tf->tf_regs.reg_edi,
+					tf->tf_regs.reg_esi,
+					tf->tf_regs.reg_ebp,
+					tf->tf_regs.reg_oesp,
+					tf->tf_regs.reg_ebx,
+					tf->tf_regs.reg_edx,
+					tf->tf_regs.reg_ecx,
+					tf->tf_regs.reg_eax,
+					tf->tf_ss, tf->tf_cs,
+					tf->tf_ds, tf->tf_es,
+					tf->tf_eflags, tf->tf_eip);
+				continue;
+			} else {
+				cprintf("Supported debug commands:\n"
+					"(c)ontinue:  continue current execution\n"
+					"(s)tep:      single step to next command\n"
+					"(r)egisters: show all regsiters\n");
+				continue;
+			}
+		} else {
+			buf = readline("K> ");
+			if (buf != NULL)
+				if (runcmd(buf, tf) < 0)
+					break;
+		}
 	}
 }
