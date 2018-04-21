@@ -60,7 +60,7 @@ i386_init(void)
 #else
 	// Touch all you want.
 	ENV_CREATE(user_primes, ENV_TYPE_USER);
-#endif // TEST*
+#endif  // TEST*
 
 	// Schedule and run the first user environment!
 	sched_yield();
@@ -96,6 +96,32 @@ boot_aps(void)
 		while(c->cpu_status != CPU_STARTED)
 			;
 	}
+/*
+=======
+	// We only have one user environment for now, so just run it.
+	env_run(&envs[0]);
+
+=======
+	cprintf("test color:"
+		" \e\004red"
+		" \e\002green"
+		" \e\001blue"
+		"\n\e\007");
+	cprintf("\e\173\n"
+		"    _   __                                                           __ __ ___ \n"
+		"   / | / /__  __  ___________  ____ ___  ____ _____  ________  _____/ // /|__ \\\n"
+		"  /  |/ / _ \\/ / / / ___/ __ \\/ __ `__ \\/ __ `/ __ \\/ ___/ _ \\/ ___/ // /___/ /\n"
+		" / /|  /  __/ /_/ / /  / /_/ / / / / / / /_/ / / / / /__/  __/ /  /__  __/ __/ \n"
+		"/_/ |_/\\___/\\__,_/_/   \\____/_/ /_/ /_/\\__,_/_/ /_/\\___/\\___/_/     /_/ /____/ \n"
+		"                                                                               \n"
+		"\e\007\n");
+		// Drop into the kernel monitor.
+	while (1)
+		monitor(NULL);
+>>>>>>> lab2
+
+>>>>>>> lab3
+*/
 }
 
 // Setup code for APs

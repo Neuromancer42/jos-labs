@@ -131,6 +131,10 @@ static unsigned addr_6845;
 static uint16_t *crt_buf;
 static uint16_t crt_pos;
 
+/* use a pair of \Esc and a char to set the attribute */
+uint16_t crt_attr;
+unsigned attr_set;
+
 static void
 cga_init(void)
 {
@@ -157,6 +161,9 @@ cga_init(void)
 
 	crt_buf = (uint16_t*) cp;
 	crt_pos = pos;
+
+	crt_attr = 0x0700;
+	attr_set = 1;
 }
 
 
@@ -164,9 +171,16 @@ cga_init(void)
 static void
 cga_putc(int c)
 {
+	// if attribute needs setting, set the attribute and break
+	if (attr_set == 0) {
+		crt_attr = (c & 0xff) << 8;
+		attr_set = 1;
+		return;
+	}
 	// if no attribute given, then use black on white
+	// change => use the global attribute
 	if (!(c & ~0xFF))
-		c |= 0x0700;
+		c |= crt_attr;
 
 	switch (c & 0xff) {
 	case '\b':
@@ -177,7 +191,7 @@ cga_putc(int c)
 		break;
 	case '\n':
 		crt_pos += CRT_COLS;
-		/* fallthru */
+		/* flattery */
 	case '\r':
 		crt_pos -= (crt_pos % CRT_COLS);
 		break;
@@ -187,6 +201,10 @@ cga_putc(int c)
 		cons_putc(' ');
 		cons_putc(' ');
 		cons_putc(' ');
+		break;
+	case '\e':
+		/* waiting for the next character to set the attribute */
+		attr_set = 0;
 		break;
 	default:
 		crt_buf[crt_pos++] = c;		/* write the character */
