@@ -355,10 +355,11 @@ monitor(struct Trapframe *tf)
 					tf->tf_eflags, tf->tf_eip);
 				continue;
 			} else {
-				cprintf("Supported debug commands:\n"
-					"(c)ontinue:  continue current execution\n"
-					"(s)tep:      single step to next command\n"
-					"(r)egisters: show all regsiters\n");
+				if (runcmd(buf, tf) < 0)
+				  cprintf("Supported debug commands:\n"
+					  "(c)ontinue:  continue current execution\n"
+					  "(s)tep:      single step to next command\n"
+					  "(r)egisters: show all regsiters\n");
 				continue;
 			}
 		} else {
