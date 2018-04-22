@@ -670,7 +670,7 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 		}
 		pte_t *pte_ptr = pgdir_walk(env->env_pgdir, (char *) i, 0);
 		if (!pte_ptr
-		    || !(*pte_ptr & (perm | PTE_P))) {
+		    || (*pte_ptr & (perm | PTE_P)) != (perm | PTE_P)) {
 			if (i < (uintptr_t) va)
 				i = (uintptr_t) va;
 			user_mem_check_addr = (uintptr_t) i;
