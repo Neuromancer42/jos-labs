@@ -223,6 +223,9 @@ trap_dispatch(struct Trapframe *tf)
 	case T_BRKPT:
 		monitor(tf);
 		return;
+	case T_DEBUG:
+		monitor(tf);
+		return;
 	case T_PGFLT:
 		page_fault_handler(tf);
 		return;
