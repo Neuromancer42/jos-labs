@@ -50,6 +50,7 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
+	lock_kernel();
 
 	// Starting non-boot CPUs
 	boot_aps();
@@ -88,7 +89,7 @@ boot_aps(void)
 		if (c == cpus + cpunum())  // We've started already.
 			continue;
 
-		// Tell mpentry.S what stack to use 
+		// Tell mpentry.S what stack to use
 		mpentry_kstack = percpu_kstacks[c - cpus] + KSTKSIZE;
 		// Start the CPU at mpentry_start
 		lapic_startap(c->cpu_id, PADDR(code));
@@ -96,39 +97,13 @@ boot_aps(void)
 		while(c->cpu_status != CPU_STARTED)
 			;
 	}
-/*
-=======
-	// We only have one user environment for now, so just run it.
-	env_run(&envs[0]);
-
-=======
-	cprintf("test color:"
-		" \e\004red"
-		" \e\002green"
-		" \e\001blue"
-		"\n\e\007");
-	cprintf("\e\173\n"
-		"    _   __                                                           __ __ ___ \n"
-		"   / | / /__  __  ___________  ____ ___  ____ _____  ________  _____/ // /|__ \\\n"
-		"  /  |/ / _ \\/ / / / ___/ __ \\/ __ `__ \\/ __ `/ __ \\/ ___/ _ \\/ ___/ // /___/ /\n"
-		" / /|  /  __/ /_/ / /  / /_/ / / / / / / /_/ / / / / /__/  __/ /  /__  __/ __/ \n"
-		"/_/ |_/\\___/\\__,_/_/   \\____/_/ /_/ /_/\\__,_/_/ /_/\\___/\\___/_/     /_/ /____/ \n"
-		"                                                                               \n"
-		"\e\007\n");
-		// Drop into the kernel monitor.
-	while (1)
-		monitor(NULL);
->>>>>>> lab2
-
->>>>>>> lab3
-*/
 }
 
 // Setup code for APs
 void
 mp_main(void)
 {
-	// We are in high EIP now, safe to switch to kern_pgdir 
+	// We are in high EIP now, safe to switch to kern_pgdir
 	lcr3(PADDR(kern_pgdir));
 	cprintf("SMP: CPU %d starting\n", cpunum());
 
@@ -142,6 +117,8 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+	lock_kernel();
+	sched_yield();
 
 	// Remove this after you finish Exercise 6
 	for (;;);
