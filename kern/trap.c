@@ -83,10 +83,13 @@ trap_init(void)
 	size_t trap_cnt = 18;
 	for (i = 0; i < trap_cnt; i++) {
 		switch (trap_id[i]) {
+			// modify trap gates to non-trap gates to mask interrupts in kernels
 		case T_BRKPT:
+			//SETGATE(idt[trap_id[i]], 1, GD_KT, handlers[i], 3);
 			SETGATE(idt[trap_id[i]], 0, GD_KT, handlers[i], 3);
 			break;
 		case T_OFLOW:
+			//SETGATE(idt[trap_id[i]], 1, GD_KT, handlers[i], 0);
 			SETGATE(idt[trap_id[i]], 0, GD_KT, handlers[i], 0);
 			break;
 		case T_SYSCALL:
@@ -227,6 +230,10 @@ trap_dispatch(struct Trapframe *tf)
 			      tf->tf_regs.reg_edi,
 			      tf->tf_regs.reg_esi);
 		tf->tf_regs.reg_eax = ret;
+		return;
+	case IRQ_OFFSET + IRQ_TIMER:
+		lapic_eoi();
+		sched_yield();
 		return;
 	}
 
