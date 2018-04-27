@@ -75,19 +75,22 @@ trap_init(void)
 
 	extern void (*handlers[])(void);
 	unsigned trap_id[] = { 0,  1,  3,  4,
-			        5,  6,  7,  8,
-			       10, 11, 12, 13,
-			       14, 16, 17, 18,
-			       19, 48};
+			       5,  6,  7,  8,
+			      10, 11, 12, 13,
+			      14, 16, 17, 18,
+			      19, 48};
 	size_t i;
-	for (i = 0; i < 18; i++) {
+	size_t trap_cnt = 18;
+	for (i = 0; i < trap_cnt; i++) {
 		switch (trap_id[i]) {
-		case 3:
-		case 48:
-			SETGATE(idt[trap_id[i]], 1, GD_KT, handlers[i], 3);
+		case T_BRKPT:
+			SETGATE(idt[trap_id[i]], 0, GD_KT, handlers[i], 3);
 			break;
-		case 4:
-			SETGATE(idt[trap_id[i]], 1, GD_KT, handlers[i], 0);
+		case T_OFLOW:
+			SETGATE(idt[trap_id[i]], 0, GD_KT, handlers[i], 0);
+			break;
+		case T_SYSCALL:
+			SETGATE(idt[trap_id[i]], 0, GD_KT, handlers[i], 3);
 			break;
 		default:
 			SETGATE(idt[trap_id[i]], 0, GD_KT, handlers[i], 0);
@@ -95,6 +98,10 @@ trap_init(void)
 		}
 
 	}
+
+	size_t irq_cnt = 16;
+	for (i = 0; i < irq_cnt; i++)
+		SETGATE(idt[IRQ_OFFSET + i], 0, GD_KT, handlers[i + trap_cnt], 0);
 
 	// Per-CPU setup
 	trap_init_percpu();
