@@ -22,6 +22,9 @@
  * where NAME is the argument passed to TRAPHANDLER.
  */
 #define TRAPHANDLER(name, num)						\
+	.data;								\
+	.long name;							\
+	.text;								\
 	.globl name;		/* define global symbol for 'name' */	\
 	.type name, @function;	/* symbol type is function */		\
 	.align 2;		/* align function definition */		\
@@ -34,6 +37,9 @@
  * format in either case.
  */
 #define TRAPHANDLER_NOEC(name, num)					\
+	.data;								\
+	.long name;							\
+	.text;								\
 	.globl name;							\
 	.type name, @function;						\
 	.align 2;							\
@@ -41,6 +47,11 @@
 	pushl $0;							\
 	pushl $(num);							\
 	jmp _alltraps
+
+.data
+	.p2align 6
+	.globl handlers
+	handlers:
 
 .text
 
