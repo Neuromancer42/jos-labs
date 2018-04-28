@@ -52,7 +52,7 @@ sys_env_destroy(envid_t envid)
 	int r;
 	struct Env *e;
 
-	if ((r = envid2env(envid, &e, 1)) < 0)
+	if ((r = envid2env(envid, &e, true)) < 0)
 		return r;
 	if (e == curenv)
 		cprintf("[%08x] exiting gracefully\n", curenv->env_id);
@@ -336,7 +336,51 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	int r;
+	struct Env *dstenv = NULL;
+	r = envid2env(envid, &dstenv, false);
+	if (r < 0) return r;
+
+	if (dstenv->env_ipc_recving == false)
+		return -E_IPC_NOT_RECV;
+
+	if ((uintptr_t) srcva < UTOP) {
+		if ((uintptr_t) srcva & (PGSIZE - 1)) // not page aligned
+			return -E_INVAL;
+
+		if (!(perm & PTE_U)                // PTE_U not set
+		    || !(perm & PTE_P)             // PTE_P not set
+		    || (perm & ~PTE_SYSCALL))      // other bits than PTE_SYSCALL set
+			return -E_INVAL;
+
+		// find physical mappings
+		pte_t *src_pte = NULL;
+		struct PageInfo *src_page = NULL;
+		src_page = page_lookup(curenv->env_pgdir, srcva, &src_pte);
+		if (src_page == NULL)              // page not mapped
+			return -E_INVAL;
+
+		// map page in dstenv's space
+		if ((uintptr_t) dstenv->env_ipc_dstva < UTOP) {
+			if ((perm & PTE_W) && !(*src_pte & PTE_W))
+				return -E_INVAL;
+			r = page_insert(dstenv->env_pgdir, src_page,
+					dstenv->env_ipc_dstva, perm);
+			if (r < 0) return r;
+
+			// succeed in sending a page
+			dstenv->env_ipc_perm = perm;
+		} else dstenv->env_ipc_perm = 0;
+	} else dstenv->env_ipc_perm = 0;
+
+	// set dstenv after ipc success
+	dstenv->env_ipc_recving = 0;
+	dstenv->env_ipc_from = curenv->env_id;
+	dstenv->env_ipc_value = value;
+	dstenv->env_status = ENV_RUNNABLE;
+	dstenv->env_tf.tf_regs.reg_eax = 0;
+
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -354,7 +398,16 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
+	if (((uintptr_t) dstva < UTOP)
+	    && ((uintptr_t) dstva & (PGSIZE - 1)))  // dstva < UTOP but not page-aligned
+		return -E_INVAL;
+
+	curenv->env_ipc_recving = true;
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+
+	// give up the cpu
+	sys_yield();
 	return 0;
 }
 
@@ -391,6 +444,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_page_unmap(a1, (void *) a2);
 	case SYS_env_set_pgfault_upcall:
 		return sys_env_set_pgfault_upcall(a1, (void *) a2);
+	case SYS_ipc_try_send:
+		return sys_ipc_try_send(a1, a2, (void *) a3, a4);
+	case SYS_ipc_recv:
+		return sys_ipc_recv((void *) a1);
 	default:
 		return -E_INVAL;
 	}
