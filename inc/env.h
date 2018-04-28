@@ -57,7 +57,8 @@ struct Env {
 	pde_t *env_pgdir;		// Kernel virtual address of page dir
 
 	// Exception handling
-	void *env_pgfault_upcall;	// Page fault upcall entry point
+	//void *env_pgfault_upcall;	// Page fault upcall entry point
+	void *env_exception_upcall[32]; // extend to all exceptions
 
 	// Lab 4 IPC
 	bool env_ipc_recving;		// Env is blocked receiving

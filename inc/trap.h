@@ -84,6 +84,7 @@ struct UTrapframe {
 	uint32_t utf_eflags;
 	/* the trap-time stack to return to */
 	uintptr_t utf_esp;
+	uint32_t utf_trapno;       // modify for challenge, generalize user handlers
 } __attribute__((packed));
 
 #endif /* !__ASSEMBLER__ */

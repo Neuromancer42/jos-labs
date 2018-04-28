@@ -11,7 +11,8 @@
 extern void _pgfault_upcall(void);
 
 // Pointer to currently installed C-language pgfault handler.
-void (*_pgfault_handler)(struct UTrapframe *utf);
+void (*_exception_handler[32])(struct UTrapframe *utf);
+int _pass_times = 0;
 
 //
 // Set the page fault handler function.
@@ -26,7 +27,8 @@ set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
 {
 	int r;
 
-	if (_pgfault_handler == 0) {
+	if (_pass_times == 0) {
+		_pass_times = 1;
 		// First time through!
 		// LAB 4: Your code here.
 		int err;
@@ -42,5 +44,25 @@ set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
 	}
 
 	// Save handler pointer for assembly to call.
-	_pgfault_handler = handler;
+	_exception_handler[T_PGFLT] = handler;
+}
+
+void
+set_exception_handler(uint32_t trapno, void (*handler)(struct UTrapframe *utf))
+{
+	int r;
+	if (_pass_times == 0) {
+		_pass_times = 1;
+		int err;
+		err = sys_page_alloc(0, (void *) UXSTACKTOP - PGSIZE,
+				     PTE_W | PTE_U | PTE_P);
+		if (err < 0)
+			panic("set_exception_handler: when allocating a page, %e", err);
+
+		err = sys_env_set_exception_upcall(0, trapno, _pgfault_upcall);
+		if (err < 0)
+			panic("set_exception_hanlder: when setting exception upcall, %e", err);
+	}
+
+	_exception_handler[trapno] = handler;
 }

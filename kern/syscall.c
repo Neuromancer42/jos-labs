@@ -144,7 +144,21 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 	if (err < 0)
 		return err;
 
-	obj_env->env_pgfault_upcall = func;
+	obj_env->env_exception_upcall[T_PGFLT] = func;
+	return 0;
+}
+
+static int
+sys_env_set_exception_upcall(envid_t envid, uint32_t trapno, void *func)
+{
+	// LAB 4: Your code here.
+	struct Env *obj_env = NULL;
+	int err;
+	err = envid2env(envid, &obj_env, true);
+	if (err < 0)
+		return err;
+
+	obj_env->env_exception_upcall[trapno] = func;
 	return 0;
 }
 
@@ -444,6 +458,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		return sys_page_unmap(a1, (void *) a2);
 	case SYS_env_set_pgfault_upcall:
 		return sys_env_set_pgfault_upcall(a1, (void *) a2);
+	case SYS_env_set_exception_upcall:
+		return sys_env_set_exception_upcall(a1, a2, (void *) a3);
 	case SYS_ipc_try_send:
 		return sys_ipc_try_send(a1, a2, (void *) a3, a4);
 	case SYS_ipc_recv:

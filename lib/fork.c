@@ -143,7 +143,7 @@ fork(void)
 			     PTE_P | PTE_U | PTE_W);
 	if (ret < 0)
 		panic("fork: error when allocating user exception stack for env %d, %e", envid, ret);
-	ret = sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall);
+	ret = sys_env_set_pgfault_upcall(envid, thisenv->env_exception_upcall[T_PGFLT]);
 	if (ret < 0)
 		panic("fork: error when setting pgfault_upcall for env %d, %e", envid, ret);
 	ret = sys_env_set_status(envid, ENV_RUNNABLE);

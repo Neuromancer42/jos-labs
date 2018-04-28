@@ -33,8 +33,9 @@
 .globl _pgfault_upcall
 _pgfault_upcall:
 	// Call the C page fault handler.
+	movl 52(%esp), %eax
 	pushl %esp			// function argument: pointer to UTF
-	movl _pgfault_handler, %eax
+	movl _exception_handler(,%eax,4), %eax
 	call *%eax
 	addl $4, %esp			// pop function argument
 	

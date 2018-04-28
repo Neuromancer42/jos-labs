@@ -235,20 +235,15 @@ trap_dispatch(struct Trapframe *tf)
 		lapic_eoi();
 		sched_yield();
 		return;
-	}
-
-	// Handle spurious interrupts
-	// The hardware sometimes raises these because of noise on the
-	// IRQ line or other reasons. We don't care.
-	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SPURIOUS) {
+	case IRQ_OFFSET + IRQ_SPURIOUS:
 		cprintf("Spurious interrupt on irq 7\n");
 		print_trapframe(tf);
 		return;
 	}
 
-	// Handle clock interrupts. Don't forget to acknowledge the
-	// interrupt using lapic_eoi() before calling the scheduler!
-	// LAB 4: Your code here.
+	// challenge: try general handler for user-mode exception handling
+	if ((tf->tf_cs & 3) != 0)
+		user_mode_handler(tf);
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -368,7 +363,7 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
-	if (curenv->env_pgfault_upcall) {
+	if (curenv->env_exception_upcall[T_PGFLT]) {
 		char *uxstack_top = NULL;
 		if (curenv->env_tf.tf_esp >= UXSTACKTOP - PGSIZE
 		    && curenv->env_tf.tf_esp < UXSTACKTOP)
@@ -390,8 +385,10 @@ page_fault_handler(struct Trapframe *tf)
 		utf->utf_eip = tf->tf_eip;
 		utf->utf_eflags = tf->tf_eflags;
 		utf->utf_esp = tf->tf_esp;
+		utf->utf_trapno = tf->tf_trapno;
 
-		tf->tf_eip = (uintptr_t) curenv->env_pgfault_upcall;
+		// it's okay since tf points to curenv->env_tf
+		tf->tf_eip = (uintptr_t) curenv->env_exception_upcall[T_PGFLT];
 		tf->tf_esp = (uintptr_t) uxstack_top;
 
 		env_run(curenv);
@@ -406,3 +403,50 @@ page_fault_handler(struct Trapframe *tf)
 	env_destroy(curenv);
 }
 
+void
+user_mode_handler(struct Trapframe *tf)
+{
+	// do not handle kernel exceptions
+	if ((tf->tf_cs & 3) == 0) return;
+
+	// only handle defined exceptions for now
+	if (tf->tf_trapno >= 32) return;
+
+	if (curenv->env_exception_upcall[tf->tf_trapno]) {
+		char *uxstack_top = NULL;
+		if (curenv->env_tf.tf_esp >= UXSTACKTOP - PGSIZE
+		    && curenv->env_tf.tf_esp < UXSTACKTOP)
+			uxstack_top = (char *) curenv->env_tf.tf_esp - 4;
+		else
+			uxstack_top = (char *) UXSTACKTOP;
+		uxstack_top = uxstack_top - sizeof(struct UTrapframe);
+
+		// check if 1: no page allocated; 2: no write access;
+		// 3: stack exceeded
+		user_mem_assert(curenv, uxstack_top,
+				sizeof(struct UTrapframe), PTE_W);
+
+		// set up UTrapFrame
+		struct UTrapframe *utf = (struct UTrapframe *) uxstack_top;
+		utf->utf_fault_va = 0; // not page fault, set to 0 by default.
+		utf->utf_err = tf->tf_err;
+		utf->utf_regs = tf->tf_regs;
+		utf->utf_eip = tf->tf_eip;
+		utf->utf_eflags = tf->tf_eflags;
+		utf->utf_esp = tf->tf_esp;
+		utf->utf_trapno = tf->tf_trapno;
+
+		// it's okay since tf points to curenv->env_tf
+		tf->tf_eip = (uintptr_t) curenv->env_exception_upcall[tf->tf_trapno];
+		tf->tf_esp = (uintptr_t) uxstack_top;
+
+		env_run(curenv);
+
+		// never return
+		return;
+	}
+
+	// No handlers. Destroy the environment that caused the fault.
+	print_trapframe(tf);
+	env_destroy(curenv);
+}

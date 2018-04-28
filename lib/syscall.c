@@ -100,6 +100,12 @@ sys_env_set_pgfault_upcall(envid_t envid, void *upcall)
 }
 
 int
+sys_env_set_exception_upcall(envid_t envid, uint32_t trapno, void *upcall)
+{
+	return syscall(SYS_env_set_exception_upcall, 1, envid, trapno, (uint32_t) upcall, 0, 0);
+}
+
+int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, int perm)
 {
 	return syscall(SYS_ipc_try_send, 0, envid, value, (uint32_t) srcva, perm, 0);
