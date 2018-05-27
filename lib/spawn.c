@@ -302,6 +302,27 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+	int r;
+	size_t i;
+	for (i = 0; i < UTOP; i += PGSIZE) {
+		if ((uvpd[PDX(i)] & PTE_P)
+		    && (uvpt[PGNUM(i)] & PTE_P)
+		    && (uvpt[PGNUM(i)] & PTE_U)
+		    && (uvpt[PGNUM(i)] & PTE_SHARE))
+			if ((r = sys_page_map(
+				     0, (void *) i,
+				     child, (void *) i,
+				     uvpt[PGNUM(i)] & PTE_SYSCALL))
+			    < 0)
+				return r;
+	}
+
+	if ((r = sys_page_alloc(child, (void *) UXSTACKTOP - PGSIZE,
+				PTE_P | PTE_U | PTE_W)) < 0)
+		return r;
+	if ((r = sys_env_set_pgfault_upcall(child, thisenv->env_pgfault_upcall)) < 0)
+		return r;
+
 	return 0;
 }
 

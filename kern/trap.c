@@ -231,10 +231,6 @@ trap_dispatch(struct Trapframe *tf)
 			      tf->tf_regs.reg_esi);
 		tf->tf_regs.reg_eax = ret;
 		return;
-	case IRQ_OFFSET + IRQ_TIMER:
-		lapic_eoi();
-		sched_yield();
-		return;
 	}
 
 	// Handle spurious interrupts
@@ -249,9 +245,22 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		lapic_eoi();
+		sched_yield();
+		return;
+	}
 
 	// Handle keyboard and serial interrupts.
 	// LAB 5: Your code here.
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_KBD) {
+		kbd_intr();
+		return;
+	}
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SERIAL) {
+		serial_intr();
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

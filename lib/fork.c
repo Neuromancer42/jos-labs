@@ -67,7 +67,14 @@ duppage(envid_t envid, unsigned pn)
 	int r;
 
 	// LAB 4: Your code here.
-	if (uvpt[pn] & (PTE_W | PTE_COW)) {
+	if (uvpt[pn] & PTE_SHARE) {
+		r = sys_page_map(0, (void *) (pn * PGSIZE),
+				 envid, (void *) (pn * PGSIZE),
+				 uvpt[pn] & PTE_SYSCALL);
+		if (r < 0)
+			panic("duppage: env 0 -> env %d va %08p perm %03x, error: %e",
+			      envid, pn * PGSIZE, uvpt[pn] & 0xFFF, r);
+	} else if (uvpt[pn] & (PTE_W | PTE_COW)) {
 		r = sys_page_map(0, (void *) (pn * PGSIZE),
 				 envid, (void *) (pn * PGSIZE),
 				 PTE_P | PTE_U | PTE_COW);

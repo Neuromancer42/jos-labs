@@ -384,7 +384,6 @@ load_icode(struct Env *e, uint8_t *binary)
 		}
 	}
 	e->env_tf.tf_eip = elfhdr->e_entry;
-	lcr3(PADDR(kern_pgdir));
 
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
@@ -393,6 +392,7 @@ load_icode(struct Env *e, uint8_t *binary)
 	region_alloc(e, (void *) USTACKTOP - PGSIZE, PGSIZE);
 
 	// switch to kernel mode address space back
+	lcr3(PADDR(kern_pgdir));
 }
 
 //
@@ -417,7 +417,8 @@ env_create(uint8_t *binary, enum EnvType type)
 
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
 	// LAB 5: Your code here.
-
+	if (type == ENV_TYPE_FS)
+		env_ptr->env_tf.tf_eflags |= FL_IOPL_3;
 }
 
 //
