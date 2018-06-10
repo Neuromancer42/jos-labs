@@ -211,6 +211,7 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	if (err < 0) return err;
 
 	struct PageInfo *new_page = page_alloc(ALLOC_ZERO);
+	if (new_page == NULL) return -E_NO_MEM;
 
 	err = page_insert(obj_env->env_pgdir, new_page, va, perm);
 	if (err < 0) {
