@@ -428,7 +428,7 @@ cons_intr(int (*proc)(void))
 		if (c == 0)
 			continue;
 		cons.buf[cons.wpos++] = c;
-		if (c == C('C'))
+		if (c == C('C') && curenv != NULL)
 			env_destroy(curenv);
 		if (cons.wpos == CONSBUFSIZE)
 			cons.wpos = 0;
